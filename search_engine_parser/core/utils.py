@@ -71,16 +71,23 @@ class CacheHandler:
             with open(cache_path, 'rb') as stream:
                 return pickle.load(stream), True
         get_vars = { 'url':url, 'headers':headers }
-        if proxy and proxy_auth:
-            auth = aiohttp.BasicAuth(*proxy_auth)
-            get_vars.update({'proxy':proxy, 'proxy_auth': auth})
 
-        async with aiohttp.ClientSession() as session:
+        if proxy is not None:
+            get_vars.update({'proxy': proxy})
+        if proxy_auth is not None:
+            auth = aiohttp.BasicAuth(*proxy_auth)
+            get_vars.update({'proxy_auth': auth})
+
+        async with aiohttp.ClientSession(trust_env=True) as session:
             async with session.get(**get_vars) as resp:
-                html = await resp.text()
-                with open(cache_path, 'wb') as stream:
-                    pickle.dump(str(html), stream)
-                return str(html), False
+                if resp.status == 200:
+                    html = await resp.text()
+                    with open(cache_path, 'wb') as stream:
+                        pickle.dump(str(html), stream)
+                    return str(html), False
+                else:
+                    raise Exception('status error:' + resp.status)
+
 
     def clear(self, engine=None):
         """
